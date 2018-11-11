@@ -41,6 +41,11 @@ class DoubleMaStrategy(CtaTemplate):
 
         initData = self.loadBar(self.initDays)
         for bar in initData:
+            print(bar, type(bar), bar.datetime, type(bar.datetime))
+            # d = {'datetime': bar.datetime, 'code': 'A'}
+            # print(bar.datetime, type(bar.datetime))
+            # ccurser = self.ctaEngine.mainEngine.dbQuery('DCE', 'hold_data', d, 'datetime')
+            # print(ccurser)
             self.onBar(bar)
         self.putEvent()
 
@@ -62,6 +67,9 @@ class DoubleMaStrategy(CtaTemplate):
         self.barCount += 1
         if self.barCount < self.initDays:
             return
+
+        #TODO
+        # result = put_to_model_to_train()
 
         self.ma5 = self.closeArray[15:20].mean()
         self.ma20 = self.closeArray.mean()
@@ -100,7 +108,7 @@ if __name__ == '__main__':
 
     engine = BacktestingEngine()
     engine.setBacktestingMode(engine.BAR_MODE)
-    engine.setStartDate('20131008', initDays=20)
+    engine.setStartDate('20170108', initDays=20)
 
     # 设置产品相关参数
     engine.setSlippage(0)
@@ -110,8 +118,8 @@ if __name__ == '__main__':
     engine.setCapital(1000000)
 
     # 设置历史数据库
-    vtSymbol = 'from_df_json'  # 作为collection的名字
-    engine.setDatabase('mydatabasename', vtSymbol)
+    vtSymbol = 'MarketData_Year_2018'  # 作为collection的名字
+    engine.setDatabase('SHFE', vtSymbol)
 
     # 在引擎中创建策略对象
     engine.initStrategy(DoubleMaStrategy, {})

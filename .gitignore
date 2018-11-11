@@ -1,0 +1,15 @@
+
+Histrory_Future_Data/CZCE/future/*
+Histrory_Future_Data/CZCE/option/*
+
+Histrory_Future_Data/DCE/daily_data/*/
+Histrory_Future_Data/DCE/hold_data/*
+Histrory_Future_Data/DCE/option_daily_data/*
+
+Histrory_Future_Data/SHFE/daily_data/*
+Histrory_Future_Data/SHFE/hold_data/*
+
+__pycache__
+Histrory_Future_Data/__pycache__
+
+jnpy/trader/app/ctaStrategy/__pycache__

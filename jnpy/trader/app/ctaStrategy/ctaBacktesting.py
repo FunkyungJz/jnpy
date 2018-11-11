@@ -217,8 +217,10 @@ class BacktestingEngine(object):
                                                         self.dataStartDate,
                                                         self.strategyStartDate)
         else:
-            flt = {'datetime':{'$gte':str(self.dataStartDate.date()),  # fangyang, 这里对日期类型进行转换为str
-                               '$lt':str(self.strategyStartDate.date())}}
+            flt = {'datetime': {'$gte': str(self.dataStartDate.date()),  # fangyang, 这里对日期类型进行转换为str
+                               '$lt': str(self.strategyStartDate.date())}}
+            # flt = {'datetime': {'$gte': self.dataStartDate.date(),
+            #                    '$lt': self.strategyStartDate.date()}}
             initCursor = collection.find(flt).sort('datetime')
         
         # 将数据从查询指针中读取出，并生成列表
@@ -236,10 +238,13 @@ class BacktestingEngine(object):
                                                            self.dataEndDate)
         else:
             if not self.dataEndDate:              #  fangyang , 这里进行日期类型str改写
-                flt = {'datetime':{'$gte':str(self.strategyStartDate.date())}}   # 数据过滤条件
+                flt = {'datetime': {'$gte': str(self.strategyStartDate.date())}}   # 数据过滤条件
+                # flt = {'datetime': {'$gte': self.strategyStartDate.date()}}  # 数据过滤条件
             else:
-                flt = {'datetime':{'$gte':str(self.strategyStartDate.date()),
-                                   '$lte':str(self.dataEndDate.date())}}
+                flt = {'datetime':{'$gte': str(self.strategyStartDate.date()),
+                                   '$lte': str(self.dataEndDate.date())}}
+                # flt = {'datetime':{'$gte':self.strategyStartDate.date(),
+                #                    '$lte':self.dataEndDate.date()}}
             self.dbCursor = collection.find(flt).sort('datetime')
         
         if isinstance(self.dbCursor, list):
@@ -345,7 +350,10 @@ class BacktestingEngine(object):
             buyCross = (order.direction==DIRECTION_LONG and 
                         order.price>=buyCrossPrice and
                         buyCrossPrice > 0)      # 国内的tick行情在涨停时askPrice1为0，此时买无法成交
-            
+
+            print(order.price, type(order.price))  # fangyang
+            print(sellCrossPrice, type(sellCrossPrice))
+
             sellCross = (order.direction==DIRECTION_SHORT and 
                          order.price<=sellCrossPrice and
                          sellCrossPrice > 0)    # 国内的tick行情在跌停时bidPrice1为0，此时卖无法成交
