@@ -33,11 +33,12 @@ def gen_main_con(contract_name=None, db_name=None, collection=None, pd_db_instan
     elif db_name == 'DCE' or db_name == 'SHFE':
         contract_name = contract_name.lower()
 
-    query = {'code': {'$regex': '^{}'.format(contract_name)}}
+    query = {'code': {'$regex': '^{}{{1}}?\d'.format(contract_name)}}  # ^开头, 字符{匹配前面字符几次}, ?匹配前面0/1次, \d数字
+    print(query)
     # df = pd.DataFrame(list(collection.find(dict(query), {'_id': 0})))
     df = pd_db_instance.read_db(database_name=db_name,
-                   collection_name=collection,
-                   query=(query, {'_id':0}))
+                                collection_name=collection,
+                                query=(query, {'_id':0}))
     # print(df.info())    # 测试datetime 类型
     # df = pd.to_datetime(df['datetime'], unit='ms')
 
@@ -47,15 +48,47 @@ def gen_main_con(contract_name=None, db_name=None, collection=None, pd_db_instan
     return df2
 
 
+def get_future_daily_collection_list_by_db(pd_db_instance, db=None, col_name_remove_key_str=['hold', 'option']):
+    '''
+
+    :param pd_db_instance:
+    :param db: db name
+    :param col_name_remove_key_str: 给出string, list, 在列表中的str, 如果包含在collection名字中, 就不包含在返回的结果中
+    :return: collections list
+    '''
+    collections_list = pd_db_instance.get_collections_list(db)
+
+    common_set = {}
+    for remove_word in col_name_remove_key_str:
+        temp_set = {x for x in collections_list if remove_word not in x}
+        # print(temp_set)  # 执行这句就知道了, 取留下的set的交集, 即不含remove_key_str的关键词字符串成分
+
+        if common_set:
+            common_set = common_set & temp_set
+        else:
+            common_set = temp_set
+
+    return list(common_set)
+
+
 if __name__ == '__main__':
 
     pd_mongo = PandasMongoDB()
 
     # db = 'SHFE'
     # collection = 'MarketData_Year_2018'
-    db = 'DCE'
-    collection = '2017'
+    # db = 'CZCE'
+    # collection = '2017'
+    # db = 'DCE'
 
-    df = gen_main_con(contract_name='B', db_name=db, collection=collection, pd_db_instance=pd_mongo)
-    print(df)
+    db_daily_collection_dict = {'CZCE': [], 'DCE': [], 'SHFE': []}
+    for key in db_daily_collection_dict.keys():
+        db_daily_collection_dict[key] = get_future_daily_collection_list_by_db(pd_mongo,
+                                                                               db=key,
+                                                                               col_name_remove_key_str=['hold',
+                                                                                                        'option'])
+    # print(db_daily_collection_dict)
+
+    # df = gen_main_con(contract_name='jm', db_name=db, collection=collection, pd_db_instance=pd_mongo)
+    # print(df)
 

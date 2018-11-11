@@ -13,3 +13,5 @@ __pycache__
 Histrory_Future_Data/__pycache__
 
 jnpy/trader/app/ctaStrategy/__pycache__
+jnpy/__pycache__
+jnpy/**/__pycache__

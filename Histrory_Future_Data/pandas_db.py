@@ -93,6 +93,9 @@ class PandasMongoDB(object):
         print('read data from mongo cost:{:.2f}s'.format(time.time()-start_time))
         return df
 
+    def get_collections_list(self, db_name):
+        return self.client[db_name].list_collection_names()
+
     def write_df_list_to_db(self,
                             my_df,
                             database_name='mydatabasename',
