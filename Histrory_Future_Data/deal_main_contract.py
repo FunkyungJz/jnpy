@@ -8,18 +8,10 @@ __author__ = 'Fangyang'
 
 import pandas as pd
 from Histrory_Future_Data.pandas_db import PandasMongoDB
+import traceback
 
-
-market_var = {'cffex': ['IF','IC','IH','T','TF','TS'],
-'dce':['C','CS','A','B','M','Y','P','FB','BB','JD','L','V','PP','J','JM','I'],
-'czce':['WH','PM','CF','SR','TA','OI','RI','MA','ME','FG','RS','RM','ZC','JR','LR','SF','SM','WT','TC','GN','RO','ER','SRX','SRY','WSX','WSY','CY','AP'],
-'shfe':['CU','AL','ZN','PB','NI','SN','AU','AG','RB','WR','HC','FU','BU','RU']
-}
-markets = ['cffex', 'dce', 'czce', 'shfe']
-
-
-def gen_main_con(contract_name=None, db_name=None, collection=None, pd_db_instance=None):
-    # 合成主连合约 df2
+def gen_main_con(contract_name=None, db_name=None, collection=None, pd_db_instance=None, base_rule='持仓量'):
+    # 合成主连合约 df2, 基于'持仓量'最高的合约, 但是CZCE郑商所数据没有这个data, 所以要用vol代替
     # db.getCollection('MarketData_Year_2018').find({code:{$regex:'^rb'}, datetime:'2018-01-02'})
     # db.getCollection('MarketData_Year_2018').find({datetime:{$gt:'2018-02-02'}}) 根据字符串查询时间
 
@@ -30,20 +22,20 @@ def gen_main_con(contract_name=None, db_name=None, collection=None, pd_db_instan
 
     if db_name == 'CZCE':
         contract_name = contract_name.upper()
+        base_rule = 'vol'
     elif db_name == 'DCE' or db_name == 'SHFE':
         contract_name = contract_name.lower()
 
     query = {'code': {'$regex': '^{}{{1}}?\d'.format(contract_name)}}  # ^开头, 字符{匹配前面字符几次}, ?匹配前面0/1次, \d数字
-    print(query)
-    # df = pd.DataFrame(list(collection.find(dict(query), {'_id': 0})))
+    print(query, db_name, collection)
     df = pd_db_instance.read_db(database_name=db_name,
                                 collection_name=collection,
                                 query=(query, {'_id':0}))
     # print(df.info())    # 测试datetime 类型
     # df = pd.to_datetime(df['datetime'], unit='ms')
 
-    df1 = df.groupby(by='datetime')[['持仓量']].max()
-    df2 = pd.merge(df, df1, on=['datetime', '持仓量'])
+    df1 = df.groupby(by='datetime')[[base_rule]].max()
+    df2 = pd.merge(df, df1, on=['datetime', base_rule])
 
     return df2
 
@@ -73,22 +65,55 @@ def get_future_daily_collection_list_by_db(pd_db_instance, db=None, col_name_rem
 
 if __name__ == '__main__':
 
+    # 把 market_var 和 db_daily_collection_dict 的内容注释解除, 就能跑了
+    market_var = {
+        # 'CFFEX': ['IF', 'IC', 'IH', 'T', 'TF', 'TS'],
+        # 'DCE': ['C', 'CS', 'A', 'B', 'M', 'Y', 'P', 'FB', 'BB', 'JD', 'L', 'V', 'PP', 'J', 'JM', 'I'],
+        # 'CZCE': ['WH', 'PM', 'CF', 'SR', 'TA', 'OI', 'RI', 'MA', 'ME', 'FG', 'RS', 'RM', 'ZC', 'JR', 'LR',
+        #          'SF', 'SM', 'WT', 'TC', 'GN', 'RO', 'ER', 'SRX', 'SRY', 'WSX', 'WSY', 'CY', 'AP'],
+        # 'SHFE': ['CU', 'AL', 'ZN', 'PB', 'NI', 'SN', 'AU', 'AG', 'RB', 'WR', 'HC', 'FU', 'BU', 'RU']
+                  }
+    # markets = ['cffex', 'dce', 'czce', 'shfe']
+
     pd_mongo = PandasMongoDB()
 
-    # db = 'SHFE'
-    # collection = 'MarketData_Year_2018'
-    # db = 'CZCE'
-    # collection = '2017'
-    # db = 'DCE'
-
-    db_daily_collection_dict = {'CZCE': [], 'DCE': [], 'SHFE': []}
+    db_daily_collection_dict = {
+        # 'CZCE': [],
+        # 'DCE': [],
+        # 'SHFE': []
+    }
     for key in db_daily_collection_dict.keys():
+        # 根据给出的db name, 获取其下的所有collection list, 并根据key_str list进行关键字过滤
         db_daily_collection_dict[key] = get_future_daily_collection_list_by_db(pd_mongo,
                                                                                db=key,
                                                                                col_name_remove_key_str=['hold',
                                                                                                         'option'])
     # print(db_daily_collection_dict)
+    for db, collection_list in db_daily_collection_dict.items():
+        # key(db) 是 交易所缩写, value(collection_list)是mongodb 中所有合约的 daily collection list
 
-    # df = gen_main_con(contract_name='jm', db_name=db, collection=collection, pd_db_instance=pd_mongo)
-    # print(df)
+        for contract_name in market_var[db]:
 
+            single_contract_all_hist_df = pd.DataFrame()
+
+            for collection in collection_list:
+                try:
+                    df = gen_main_con(contract_name=contract_name, db_name=db,
+                                      collection=collection, pd_db_instance=pd_mongo)
+                    print(df)
+                    print('Success to deal contract:{} -- in {} -- {} collection'.format(contract_name,
+                                                                                         db,
+                                                                                         collection))
+                    single_contract_all_hist_df = single_contract_all_hist_df.append(df, ignore_index=True)
+                except Exception:
+                    traceback.print_exc()
+
+            pd_mongo.write_df_json_to_db(single_contract_all_hist_df,
+                                         database_name=db+'_main',
+                                         collection_name=contract_name)
+
+# CZCE 没有持仓量信息, 用vol代替
+
+# mongodb check script
+# db.getCollection('BU').find({datetime:{$gt:'2012-12-12'}}).sort({datetime:1})
+# db.getCollection('MarketData_Year_2013').find({code:{$regex:'^bu'}}).sort({datetime:1})
