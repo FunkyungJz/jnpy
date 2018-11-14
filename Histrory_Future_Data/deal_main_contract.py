@@ -36,6 +36,8 @@ def gen_main_con(contract_name=None, db_name=None, collection=None, pd_db_instan
 
     df1 = df.groupby(by='datetime')[[base_rule]].max()
     df2 = pd.merge(df, df1, on=['datetime', base_rule])
+    df2['contract'] = df2['code']
+    df2['code'] = contract_name.upper()
 
     return df2
 
@@ -69,8 +71,8 @@ if __name__ == '__main__':
     market_var = {
         # 'CFFEX': ['IF', 'IC', 'IH', 'T', 'TF', 'TS'],
         # 'DCE': ['C', 'CS', 'A', 'B', 'M', 'Y', 'P', 'FB', 'BB', 'JD', 'L', 'V', 'PP', 'J', 'JM', 'I'],
-        # 'CZCE': ['WH', 'PM', 'CF', 'SR', 'TA', 'OI', 'RI', 'MA', 'ME', 'FG', 'RS', 'RM', 'ZC', 'JR', 'LR',
-        #          'SF', 'SM', 'WT', 'TC', 'GN', 'RO', 'ER', 'SRX', 'SRY', 'WSX', 'WSY', 'CY', 'AP'],
+        'CZCE': ['WH', 'PM', 'CF', 'SR', 'TA', 'OI', 'RI', 'MA', 'ME', 'FG', 'RS', 'RM', 'ZC', 'JR', 'LR',
+                 'SF', 'SM', 'WT', 'TC', 'GN', 'RO', 'ER', 'CY', 'AP'],
         # 'SHFE': ['CU', 'AL', 'ZN', 'PB', 'NI', 'SN', 'AU', 'AG', 'RB', 'WR', 'HC', 'FU', 'BU', 'RU']
                   }
     # markets = ['cffex', 'dce', 'czce', 'shfe']
@@ -78,7 +80,7 @@ if __name__ == '__main__':
     pd_mongo = PandasMongoDB()
 
     db_daily_collection_dict = {
-        # 'CZCE': [],
+        'CZCE': [],
         # 'DCE': [],
         # 'SHFE': []
     }

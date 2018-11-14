@@ -8,6 +8,13 @@ __author__ = 'Fangyang'
 # 编写一个简单的双均线策略
 import numpy as np
 from jnpy.trader.app.ctaStrategy.ctaTemplate import CtaTemplate
+import pandas as pd
+from Histrory_Future_Data.pandas_db import PandasMongoDB
+from jnpy.time_series_transform import gen_ts_columns
+from model.model import Regression
+
+import copy
+from datetime import datetime
 
 
 class DoubleMaStrategy(CtaTemplate):
@@ -16,7 +23,7 @@ class DoubleMaStrategy(CtaTemplate):
     author = 'fangyang'
 
     # 策略参数
-    initDays = 25  # 初始化数据所用的天数
+    initDays = 250  # 初始化数据所用的天数
 
     # 策略变量
     barCount = 0
@@ -34,6 +41,14 @@ class DoubleMaStrategy(CtaTemplate):
     def __init__(self, ctaEngine, setting):
         super(DoubleMaStrategy, self).__init__(ctaEngine, setting)
         self.closeArray = np.zeros(20)
+        self.data_df = pd.DataFrame()  # 用于缓存即将送入model的df
+        self.pd_mongo = PandasMongoDB()
+        self.hold_df = pd.DataFrame()
+
+        self.ll = 0
+        self.ss = 0
+        self.coe = 2
+
 
     def onInit(self):
         '''初始化策略'''
@@ -41,11 +56,6 @@ class DoubleMaStrategy(CtaTemplate):
 
         initData = self.loadBar(self.initDays)
         for bar in initData:
-            print(bar, type(bar), bar.datetime, type(bar.datetime))
-            # d = {'datetime': bar.datetime, 'code': 'A'}
-            # print(bar.datetime, type(bar.datetime))
-            # ccurser = self.ctaEngine.mainEngine.dbQuery('DCE', 'hold_data', d, 'datetime')
-            # print(ccurser)
             self.onBar(bar)
         self.putEvent()
 
@@ -61,36 +71,78 @@ class DoubleMaStrategy(CtaTemplate):
         pass
 
     def onBar(self, bar):
-        self.closeArray[0:19] = self.closeArray[1:20]
-        self.closeArray[-1] = bar.close
+        print(bar.close, type(bar.close))
+        print(bar.datetime, type(bar.datetime))
+        if not isinstance(bar.datetime, str):
+            bar.datetime = datetime.strftime(bar.datetime, '%Y-%m-%d')
+        # print(bar.volume, type(bar.volume))  # 不存在
+        # print(bar.vtSymbol, type(vtSymbol))  # 不存在
+        # print(self.vtSymbol, type(self.vtSymbol))
 
+        query = {'datetime': '{}'.format(bar.datetime),
+                 'code': self.vtSymbol}
+        hold_data_df = self.pd_mongo.read_db(database_name='SHFE', collection_name='hold_data',
+                                             query=(query, {'_id': 0}))
+
+        bar_df = self.change_bar_cls_to_df(bar)
+        bar_df = pd.merge(hold_data_df, bar_df, on=['datetime', 'code'])
+        # self.closeArray[0:19] = self.closeArray[1:20]
+        # self.closeArray[-1] = bar.close
+        self.data_df = self.data_df.append(bar_df, ignore_index=True)
         self.barCount += 1
         if self.barCount < self.initDays:
             return
 
         #TODO
         # result = put_to_model_to_train()
+        # 获得 t+1天 o h l c , t+2 天 o h l c
 
-        self.ma5 = self.closeArray[15:20].mean()
-        self.ma20 = self.closeArray.mean()
+        columns = ['open', 'high', 'low', 'close']
+        data_df_for_model = copy.deepcopy(self.data_df)
+        data_df_for_model = gen_ts_columns(data_df_for_model, columns, 10)
+        # print(self.data_df.columns)
+        day1, day2, actual_value = Regression(data_df_for_model,
+                      ['open_t+9', 'close_t+9', 'high_t+9', 'low_t+9'],
+                      ['open_t+10', 'close_t+10', 'high_t+10', 'low_t+10'])
+        print(day1, day2, actual_value)
 
-        crossOver = self.ma5 > self.ma20 and self.lastMa5 <= self.lastMa20
-        crossBelow = self.ma5 < self.ma20 and self.lastMa5 >= self.lastMa20
-
-        if crossOver:
+        self.ll = day2['close_t+10'] - day1['open_t+9']
+        self.ss = day1['open_t+9'] - day2['close_t+10']
+        if self.ll > (self.coe * self.ss):
             if self.pos == 0:
-                self.buy(bar.close * 1.05, 100)
+                self.buy(min(day1['low_t+9'], bar.close), 100)
             elif self.pos < 0:
-                self.cover(bar.close * 1.05, 100)
-                self.buy(bar.close * 1.05, 100)
-        elif crossBelow:
-            if self.pos == 0:
-                self.short(bar.close * 0.95, 100)
-            elif self.pos > 0:
-                self.sell(bar.close * 0.95, 100)
-                self.short(bar.close * 0.95, 100)
+                self.cover(max(day1['low_t+9'], bar.close), 100)
+                self.buy(min(day1['low_t+9'], bar.close), 100)
 
+        elif self.ss > (self.coe * self.ll):
+            if self.pos == 0:
+                self.short(max(day1['high_t+9'], bar.close), 100)
+            elif self.pos > 0:
+                self.sell(min(day1['high_t+9'], bar.close), 100)
+                self.short(max(day1['high_t+9'], bar.close), 100)
+
+        self.data_df = self.data_df.drop([0])
         self.putEvent()
+        # self.ma5 = self.closeArray[15:20].mean()
+        # self.ma20 = self.closeArray.mean()
+
+        # crossOver = self.ma5 > self.ma20 and self.lastMa5 <= self.lastMa20
+        # crossBelow = self.ma5 < self.ma20 and self.lastMa5 >= self.lastMa20
+
+        # if crossOver:
+        #     if self.pos == 0:
+        #         self.buy(bar.close * 1.05, 100)
+        #     elif self.pos < 0:
+        #         self.cover(bar.close * 1.05, 100)
+        #         self.buy(bar.close * 1.05, 100)
+        # elif crossBelow:
+        #     if self.pos == 0:
+        #         self.short(bar.close * 0.95, 100)
+        #     elif self.pos > 0:
+        #         self.sell(bar.close * 0.95, 100)
+        #         self.short(bar.close * 0.95, 100)
+
 
     def onOrder(self, order):
         pass
@@ -101,6 +153,12 @@ class DoubleMaStrategy(CtaTemplate):
     def onStopOrder(self, so):
         pass
 
+    def change_bar_cls_to_df(self, bar):
+        bar_dict = dict()
+        for name, value in vars(bar).items():
+            bar_dict[name] = [value]
+
+        return pd.DataFrame(bar_dict)
 
 if __name__ == '__main__':
 
@@ -108,7 +166,7 @@ if __name__ == '__main__':
 
     engine = BacktestingEngine()
     engine.setBacktestingMode(engine.BAR_MODE)
-    engine.setStartDate('20170108', initDays=20)
+    engine.setStartDate('20140301', initDays=120)
 
     # 设置产品相关参数
     engine.setSlippage(0)
@@ -118,11 +176,11 @@ if __name__ == '__main__':
     engine.setCapital(1000000)
 
     # 设置历史数据库
-    vtSymbol = 'MarketData_Year_2018'  # 作为collection的名字
-    engine.setDatabase('SHFE', vtSymbol)
+    vtSymbol = 'RB'  # 作为collection的名字
+    engine.setDatabase('SHFE_main', vtSymbol)
 
     # 在引擎中创建策略对象
-    engine.initStrategy(DoubleMaStrategy, {})
+    engine.initStrategy(DoubleMaStrategy, {'vtSymbol': 'RB'})
 
     engine.runBacktesting()
     engine.showDailyResult()

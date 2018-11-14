@@ -9,9 +9,11 @@ Histrory_Future_Data/DCE/option_daily_data/*
 Histrory_Future_Data/SHFE/daily_data/*
 Histrory_Future_Data/SHFE/hold_data/*
 
-__pycache__
-Histrory_Future_Data/__pycache__
+model/*
 
-jnpy/trader/app/ctaStrategy/__pycache__
-jnpy/__pycache__
-jnpy/**/__pycache__
+__pycache__/*
+Histrory_Future_Data/__pycache__/*
+jnpy/trader/app/ctaStrategy/__pycache__/*
+jnpy/__pycache__/*
+jnpy/**/__pycache__/*
+jnpy/**/**/__pycache__/*

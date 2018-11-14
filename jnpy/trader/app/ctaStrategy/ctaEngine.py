@@ -338,7 +338,7 @@ class CtaEngine(AppEngine):
         """从数据库中读取Bar数据，startDate是datetime对象"""
         startDate = self.today - timedelta(days)
         
-        d = {'datetime':{'$gte':startDate}}
+        d = {'datetime': {'$gte':startDate}}
         barData = self.mainEngine.dbQuery(dbName, collectionName, d, 'datetime')
         
         l = []

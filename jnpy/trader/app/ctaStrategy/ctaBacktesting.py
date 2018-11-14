@@ -291,15 +291,15 @@ class BacktestingEngine(object):
         """新的K线"""
         self.bar = bar
         # 这里增加一行类型转换
-        self.bar.datetime = datetime.strptime(self.bar.datetime, '%Y-%m-%d')
-
-        self.dt = bar.datetime
+        self.bar.datetime = datetime.strptime(self.bar.datetime, '%Y-%m-%d')  # fangyang 这里保持self.bar.datetime为str, self.dt为datetime
+        self.dt = self.bar.datetime
+        # self.dt = datetime.strptime(self.bar.datetime, '%Y-%m-%d')  # 注掉上面两行, 多写这行
         
         self.crossLimitOrder()      # 先撮合限价单
         self.crossStopOrder()       # 再撮合停止单
         self.strategy.onBar(bar)    # 推送K线到策略中
         
-        self.updateDailyClose(bar.datetime, bar.close)
+        self.updateDailyClose(self.bar.datetime, self.bar.close)  # fangyang 在两个参数上加 self.
     
     #----------------------------------------------------------------------
     def newTick(self, tick):
@@ -351,8 +351,7 @@ class BacktestingEngine(object):
                         order.price>=buyCrossPrice and
                         buyCrossPrice > 0)      # 国内的tick行情在涨停时askPrice1为0，此时买无法成交
 
-            print(order.price, type(order.price))  # fangyang
-            print(sellCrossPrice, type(sellCrossPrice))
+            print(order.price, type(order.price), sellCrossPrice, type(sellCrossPrice))  # fangyang
 
             sellCross = (order.direction==DIRECTION_SHORT and 
                          order.price<=sellCrossPrice and
@@ -977,6 +976,8 @@ class BacktestingEngine(object):
     #----------------------------------------------------------------------
     def updateDailyClose(self, dt, price):
         """更新每日收盘价"""
+        if isinstance(dt, str):    # fangyang  加两行
+            dt = datetime.strptime(dt, '%Y-%m-%d')
         date = dt.date()
         
         if date not in self.dailyResultDict:

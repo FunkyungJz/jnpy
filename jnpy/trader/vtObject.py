@@ -17,7 +17,7 @@ class VtBaseData(object):
         self.gatewayName = EMPTY_STRING         # Gateway名称        
         self.rawData = None                     # 原始数据
 
- 
+
 ########################################################################
 class VtTickData(VtBaseData):
     """Tick行情数据类"""
